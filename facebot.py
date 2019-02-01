@@ -165,11 +165,16 @@ def auto_message(facebot_gui, checkbox, input_email, input_password):
         facebot_gui.email = input_email.text()
         facebot_gui.password = input_password.text()
 
-        # Create client, login to FB
-        facebot_gui.client = Facebot(facebot_gui.email, facebot_gui.password)
+        try:
+            # Create client, login to FB
+            facebot_gui.client = Facebot(facebot_gui.email, facebot_gui.password, max_tries=1)
 
-        # Wait for messages
-        facebot_gui.client.listen()
+            # Wait for messages
+            facebot_gui.client.listen()
+        except FBchatException:
+            warning = QMessageBox.warning(facebot_gui, 'Error', 'Login not succesful')
+            checkbox.setChecked(False)
+            return None
 
     elif not checkbox.isChecked():
         # Logout
