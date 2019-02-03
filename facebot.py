@@ -31,7 +31,7 @@ class Facebot(Client):
     def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
         # If sender is not myself, send auto-messages
         if author_id != self.uid:
-            self.sendMessage('Đây là tin nhắn tự động\n_from Facebot with love_', thread_id=thread_id, thread_type=thread_type)
+            self.sendMessage('`Đây là tin nhắn tự động`\n_`from Facebot with love`_', thread_id=thread_id, thread_type=thread_type)
             self.sendLocalImage(current_directory + '/angelina.jpg', message=Message(text=''),
                                 thread_id=thread_id, thread_type=thread_type)
 # Facebot
@@ -47,7 +47,7 @@ class FacebotGui(QDialog):
 
         # Default parameters
         self.width = 250
-        self.height = 100
+        self.height = 150
         self.margin = 10
 
         # Create layout
@@ -61,13 +61,16 @@ class FacebotGui(QDialog):
         self.input_password = QLineEdit()
         self.input_password.setPlaceholderText('Password')
         self.input_password.setEchoMode(QLineEdit.Password)
+        ## Checkbox login
+        self.check_login = QCheckBox('Login')
         ## Checkbox auto-message
         self.check_auto_message = QCheckBox('Auto-messsage')
 
         # Add elements to layout
         layout.addWidget(self.input_email, 0, 0)
         layout.addWidget(self.input_password, 1, 0)
-        layout.addWidget(self.check_auto_message, 2, 0)
+        layout.addWidget(self.check_login, 2, 0)
+        layout.addWidget(self.check_auto_message, 3, 0)
 
         # Set layout
         self.setLayout(layout)
@@ -76,6 +79,7 @@ class FacebotGui(QDialog):
         self.init_ui()
 
         # Handle events
+        self.check_login.clicked.connect(self.handle_login)
         self.check_auto_message.clicked.connect(self.handle_auto_message)
 
 
@@ -116,10 +120,32 @@ class FacebotGui(QDialog):
     # Back-end functions
     def handle_auto_message(self):
         # self <- facebot_gui
-        self.messenger = AutoMessageBackgroundThread(self, self.check_auto_message, self.input_email, self.input_password)
+        self.messenger = AutoMessageBackgroundThread(self, self.check_login, self.check_auto_message)
 
         # IMPORTANT: ALWAYS start()
         self.messenger.start()
+    # handle_auto_message
+
+    def handle_login(self):
+        if self.check_login.isChecked:
+            # Input info
+            self.email = self.input_email.text()
+            self.password = self.input_password.text()
+            
+            try:
+                # Create client, login to FB
+                self.client = Facebot(self.email, self.password, max_tries=1)
+            except FBchatException:
+                warning = QMessageBox.warning(
+                    facebot_gui, 'Error', 'Login not succesful')
+                self.check_login.setChecked(False)
+                return None
+
+        else:
+            # Logout
+            self.client.logout()
+            print('Logout of {} succesful.'.format(self.email))
+    # handle_login
 # FacebotGui
 
 
@@ -127,12 +153,11 @@ class FacebotGui(QDialog):
 # Class AutoMessageBackgroundThread
 class AutoMessageBackgroundThread(QThread):
     
-    def __init__(self, facebot_gui, checkbox, input_email, input_password):
+    def __init__(self, facebot_gui, check_login, check_auto_message):
         '''
         facebot_gui: FacebotGui
-        checkbox: QCheckBox
-        input_email: QLineEdit
-        input_password: QLineEdit
+        check_login: QCheckBox
+        check_auto_message: QCheckBox
 
         return: None
         '''
@@ -141,45 +166,35 @@ class AutoMessageBackgroundThread(QThread):
 
         # Initialize attributes
         self.facebot_gui = facebot_gui
-        self.checkbox = checkbox
-        self.input_email = input_email
-        self.input_password = input_password
+        self.check_login = check_login
+        self.check_auto_message = check_auto_message
 
     def run(self):
-        auto_message(self.facebot_gui, self.checkbox, self.input_email, self.input_password)
+        auto_message(self.facebot_gui, self.check_login, self.check_auto_message)
 # AutoMessageBackgroundThread
 
 
 
-def auto_message(facebot_gui, checkbox, input_email, input_password):
+def auto_message(facebot_gui, check_login, check_auto_message):
     '''
     facebot_gui: FacebotGui
-    checkbox: QCheckBox
-    input_email: QLineEdit
-    input_password: QLineEdit
+    check_login: QCheckBox
+    check_auto_message: QCheckBox
 
     return: None
     '''
-    if checkbox.isChecked():
-        # Input info
-        facebot_gui.email = input_email.text()
-        facebot_gui.password = input_password.text()
+    if check_login.isChecked() and check_auto_message.isChecked():
+        # Listen to messages
+        facebot_gui.client.listen()
 
-        try:
-            # Create client, login to FB
-            facebot_gui.client = Facebot(facebot_gui.email, facebot_gui.password, max_tries=1)
+    elif not check_login.isChecked():
+        # Do nothing
+        pass
 
-            # Wait for messages
-            facebot_gui.client.listen()
-        except FBchatException:
-            warning = QMessageBox.warning(facebot_gui, 'Error', 'Login not succesful')
-            checkbox.setChecked(False)
-            return None
-
-    elif not checkbox.isChecked():
-        # Logout
-        facebot_gui.client.logout()
-        print('Logout of {} succesful.'.format(facebot_gui.email))
+    elif check_login.isChecked and not check_auto_message.isChecked():
+        # Stop listening to messages
+        facebot_gui.client.listening = False
+        print('Stop listening.')
 
     return None
 # auto_message
