@@ -10,9 +10,6 @@ import sys
 from fbchat import Client
 from fbchat.models import *
 
-# getpass
-from getpass import getpass
-
 # PyQt5
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -25,8 +22,8 @@ current_directory = os.path.dirname(os.path.abspath(__file__))
 
 
 
-# Class Facebot
-class Facebot(Client):
+# Class Repeat
+class Repeat(Client):
 
     def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
         # If sender is not myself, send auto-messages
@@ -34,7 +31,20 @@ class Facebot(Client):
             self.sendMessage('`Đây là tin nhắn tự động`\n_`from Facebot with love`_', thread_id=thread_id, thread_type=thread_type)
             self.sendLocalImage(current_directory + '/angelina.jpg', message=Message(text=''),
                                 thread_id=thread_id, thread_type=thread_type)
-# Facebot
+    # onMessage
+# Repeat
+
+
+
+# Class Echo
+class Echo(Client):
+
+    def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
+        # If sender is not myself, send auto-messages
+        if author_id != self.uid:
+            self.send(message_object, thread_id=thread_id, thread_type=thread_type)
+    # onMessage
+# Echo
 
 
 
@@ -61,6 +71,15 @@ class FacebotGui(QDialog):
         self.input_password = QLineEdit()
         self.input_password.setPlaceholderText('Password')
         self.input_password.setEchoMode(QLineEdit.Password)
+        ## Radiobutton repeat
+        self.radio_repeat = QRadioButton('Repeat')
+        self.radio_repeat.setChecked(True)
+        ## Radiobutton echo
+        self.radio_echo = QRadioButton('Echo')
+        ## Radiobutton group
+        self.group_mode = QButtonGroup()
+        self.group_mode.addButton(self.radio_repeat)
+        self.group_mode.addButton(self.radio_echo)
         ## Checkbox login
         self.check_login = QCheckBox('Login')
         ## Checkbox auto-message
@@ -70,8 +89,10 @@ class FacebotGui(QDialog):
         # Add elements to layout
         layout.addWidget(self.input_email, 0, 0)
         layout.addWidget(self.input_password, 1, 0)
-        layout.addWidget(self.check_login, 2, 0)
-        layout.addWidget(self.check_auto_message, 3, 0)
+        layout.addWidget(self.radio_repeat, 2, 0)
+        layout.addWidget(self.radio_echo, 3, 0)
+        layout.addWidget(self.check_login, 4, 0)
+        layout.addWidget(self.check_auto_message, 5, 0)
 
         # Set layout
         self.setLayout(layout)
@@ -135,12 +156,21 @@ class FacebotGui(QDialog):
             
             try:
                 # Create client, login to FB
-                self.client = Facebot(self.email, self.password, max_tries=1)
+                if self.radio_repeat.isChecked():
+                    self.client = Repeat(self.email, self.password, max_tries=1)
+                elif self.radio_echo.isChecked():
+                    self.client = Echo(self.email, self.password, max_tries=1)
+                else:
+                    pass
             except FBchatException:
                 warning = QMessageBox.warning(
                     facebot_gui, 'Error', 'Login not succesful')
                 self.check_login.setChecked(False)
                 return None
+
+            # Make radiobuttons read-only
+            self.radio_repeat.setEnabled(False)
+            self.radio_echo.setEnabled(False)
 
             # Make check_auto_message checkable
             self.check_auto_message.setEnabled(True)
@@ -151,13 +181,18 @@ class FacebotGui(QDialog):
             print('Logout of {} succesful.'.format(self.email))
 
             # Stop messenger thread
-            self.messenger.quit()
+            if self.check_auto_message.isChecked():
+                self.messenger.quit()
 
             # Uncheck check_auto_message
             self.check_auto_message.setChecked(False)
 
             # Make check_auto_message uncheckable
             self.check_auto_message.setEnabled(False)
+
+            # Make radiobuttons checkable
+            self.radio_repeat.setEnabled(True)
+            self.radio_echo.setEnabled(True)
     # handle_login
 # FacebotGui
 
