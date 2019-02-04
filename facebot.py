@@ -65,6 +65,7 @@ class FacebotGui(QDialog):
         self.check_login = QCheckBox('Login')
         ## Checkbox auto-message
         self.check_auto_message = QCheckBox('Auto-messsage')
+        self.check_auto_message.setEnabled(False)  # Make check_auto_message uncheckable
 
         # Add elements to layout
         layout.addWidget(self.input_email, 0, 0)
@@ -127,7 +128,7 @@ class FacebotGui(QDialog):
     # handle_auto_message
 
     def handle_login(self):
-        if self.check_login.isChecked:
+        if self.check_login.isChecked():
             # Input info
             self.email = self.input_email.text()
             self.password = self.input_password.text()
@@ -141,10 +142,22 @@ class FacebotGui(QDialog):
                 self.check_login.setChecked(False)
                 return None
 
+            # Make check_auto_message checkable
+            self.check_auto_message.setEnabled(True)
+
         else:
             # Logout
             self.client.logout()
             print('Logout of {} succesful.'.format(self.email))
+
+            # Stop messenger thread
+            self.messenger.quit()
+
+            # Uncheck check_auto_message
+            self.check_auto_message.setChecked(False)
+
+            # Make check_auto_message uncheckable
+            self.check_auto_message.setEnabled(False)
     # handle_login
 # FacebotGui
 
@@ -184,8 +197,12 @@ def auto_message(facebot_gui, check_login, check_auto_message):
     return: None
     '''
     if check_login.isChecked() and check_auto_message.isChecked():
-        # Listen to messages
-        facebot_gui.client.listen()
+        try:
+            # Listen to messages
+            facebot_gui.client.listen()
+        except:
+            warning = QMessageBox.warning(
+                facebot_gui, 'Error', 'Error when listening')
 
     elif not check_login.isChecked():
         # Do nothing
